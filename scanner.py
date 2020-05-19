@@ -68,6 +68,7 @@ def main():
     ymaxs = [0.5, 0.5, 1, 1]
 
     renderers = [vtk.vtkRenderer(), vtk.vtkRenderer(), vtk.vtkRenderer(), vtk.vtkRenderer()]
+    colors = [(0.82, 0.82, 1), (0.82, 0.82, 0.82), (1, 0.82, 0.82), (0.82, 1, 0.82)]
 
     # Create the viewports and generate the visualizations
     for i in range(4):
@@ -78,7 +79,7 @@ def main():
 
         # Create a mapper and actor
         ren.AddActor(knee)
-        ren.SetBackground(0.5, 0.5, 0.5)
+        ren.SetBackground(colors[i])
         ren.GetActiveCamera().Elevation(180)
         ren.ResetCamera()
 
