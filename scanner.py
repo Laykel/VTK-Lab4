@@ -80,6 +80,26 @@ def main():
     knee_outline = outline(reader)
     knee_bone = create_actor(contour(reader, 0, 72.0))
     knee_skin = create_actor(contour(reader, 0, 50))
+    knee_skin.GetProperty().SetColor(0.9, 0.69, 0.56)
+
+    # -------------------------------------------------------------------- SPHERE
+    sphere = vtk.vtkSphere()
+    sphere.SetCenter(80, -110, 40)
+    sphere.SetRadius(50)
+
+    clipper = vtk.vtkClipPolyData()
+    clipper.SetInputConnection(                                  )
+    clipper.SetClipFunction(sphere)
+    clipper.GenerateClippedOutputOn()
+    clipper.SetValue(0.5)
+
+    clip_mapper = vtk.vtkPolyDataMapper()
+    clip_mapper.SetInputConnection(clipper.GetOutputPort())
+
+    clip_actor = vtk.vtkActor()
+    clip_actor.SetMapper(clip_mapper)
+    # clip_actor.GetProperty().SetOpacity(0.1)
+    # -------------------------------------------------------------------- SPHERE
 
     # Create a transform object for the knee and its outline
     transform = vtk.vtkTransform()
@@ -100,7 +120,12 @@ def main():
     # Renderers for the four viewports
     renderers = [vtk.vtkRenderer() for _ in range(4)]
     # Actors for the four viewports
-    actors = [knee_skin, knee_skin, knee_bone, knee_bone]
+    actors = [
+        [knee_skin, knee_bone, knee_outline, clip_actor],
+        [knee_bone, knee_outline],
+        [knee_skin, knee_bone, knee_outline],
+        [knee_skin, knee_bone, knee_outline]
+    ]
     # Background colors for the four viewports
     colors = [(0.82, 0.82, 1), (0.82, 0.82, 0.82), (1, 0.82, 0.82), (0.82, 1, 0.82)]
 
@@ -110,9 +135,9 @@ def main():
 
         ren.SetViewport(xmins[idx], ymins[idx], xmaxs[idx], ymaxs[idx])
 
-        # Create a mapper and actor
-        ren.AddActor(actors[idx])
-        ren.AddActor(knee_outline)
+        for sphere in actors[idx]:
+            ren.AddActor(sphere)
+
         ren.SetBackground(colors[idx])
         ren.GetActiveCamera().Elevation(180)
         ren.ResetCamera()
