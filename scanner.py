@@ -39,8 +39,8 @@ def outline(vtk_object):
 def contour(vtk_object, i, j):
     """...
     :param vtk_object: The object to apply contouring to
-    :param i: ...
-    :param j: ...
+    :param i: TODO
+    :param j: TODO
     :returns: A vtkContourFilter to add to the pipeline
     """
     # Implementing Marching Cubes Algorithm to create the surface using vtkContourFilter object.
@@ -65,6 +65,27 @@ def create_actor(vtk_object):
     return actor
 
 
+def create_sphere_clipping(vtk_object, radius, coordinates):
+    sphere = vtk.vtkSphere()
+    sphere.SetRadius(radius)
+    sphere.SetCenter(coordinates)
+
+    clipper = vtk.vtkClipPolyData()
+    clipper.SetInputConnection(vtk_object.GetOutputPort())
+    clipper.SetClipFunction(sphere)
+    clipper.GenerateClippedOutputOn()
+    clipper.SetValue(0.5)
+
+    clip_mapper = vtk.vtkPolyDataMapper()
+    clip_mapper.SetInputConnection(clipper.GetOutputPort())
+    clip_mapper.SetScalarVisibility(False)
+
+    clipped = vtk.vtkActor()
+    clipped.SetMapper(clip_mapper)
+
+    return clipped
+
+
 # Main instructions
 def main():
     ren_win = vtk.vtkRenderWindow()
@@ -80,25 +101,6 @@ def main():
     bone_contour = contour(reader, 0, 72.0)
     skin_contour = contour(reader, 0, 50)
 
-    # -------------------------------------------------------------------- CLIPPING
-    sphere = vtk.vtkSphere()
-    sphere.SetCenter(80, 40, 110)
-    sphere.SetRadius(48)
-
-    clipper = vtk.vtkClipPolyData()
-    clipper.SetInputConnection(skin_contour.GetOutputPort())
-    clipper.SetClipFunction(sphere)
-    clipper.GenerateClippedOutputOn()
-    clipper.SetValue(0.5)
-
-    clip_mapper = vtk.vtkPolyDataMapper()
-    clip_mapper.SetInputConnection(clipper.GetOutputPort())
-    clip_mapper.SetScalarVisibility(False)
-
-    clip_sphere = vtk.vtkActor()
-    clip_sphere.SetMapper(clip_mapper)
-    clip_sphere.GetProperty().SetColor(0.9, 0.69, 0.56)
-    # -------------------------------------------------------------------- CLIPPING
     # -------------------------------------------------------------------- SPHERE
     sphere_source = vtk.vtkSphereSource()
     sphere_source.SetCenter(80, 40, 110)
@@ -109,9 +111,9 @@ def main():
     sphere_mapper = vtk.vtkPolyDataMapper()
     sphere_mapper.SetInputConnection(sphere_source.GetOutputPort())
 
-    sphere = vtk.vtkActor()
-    sphere.SetMapper(sphere_mapper)
-    sphere.GetProperty().SetOpacity(0.2)
+    sphere_transparent = vtk.vtkActor()
+    sphere_transparent.SetMapper(sphere_mapper)
+    sphere_transparent.GetProperty().SetOpacity(0.2)
     # -------------------------------------------------------------------- SPHERE
 
     # Create actors
@@ -119,6 +121,14 @@ def main():
     knee_bone = create_actor(bone_contour)
     knee_skin = create_actor(skin_contour)
     knee_skin.GetProperty().SetColor(0.9, 0.69, 0.56)
+
+    knee_clipped = create_sphere_clipping(skin_contour, 48, (80, 40, 110))
+    knee_clipped.GetProperty().SetColor(0.9, 0.69, 0.56)
+
+    # TODO Make it not transparent on the back
+    knee_clipped_transparent = create_sphere_clipping(skin_contour, 48, (80, 40, 110))
+    knee_clipped_transparent.GetProperty().SetColor(0.9, 0.69, 0.56)
+    knee_clipped_transparent.GetProperty().SetOpacity(0.5)
 
     # Define viewport ranges
     xmins = [0, .5, 0, .5]
@@ -130,10 +140,10 @@ def main():
     renderers = [vtk.vtkRenderer() for _ in range(4)]
     # Actors for the four viewports
     actors = [
-        [clip_sphere, sphere, knee_bone, knee_outline],
+        [knee_clipped, sphere_transparent, knee_bone, knee_outline],
         [knee_bone, knee_outline],
         [knee_skin, knee_bone, knee_outline],
-        [clip_sphere, knee_bone, knee_outline]
+        [knee_clipped_transparent, knee_bone, knee_outline]
     ]
     # Background colors for the four viewports
     colors = [(0.82, 0.82, 1), (0.82, 0.82, 0.82), (1, 0.82, 0.82), (0.82, 1, 0.82)]
@@ -144,8 +154,8 @@ def main():
 
         ren.SetViewport(xmins[idx], ymins[idx], xmaxs[idx], ymaxs[idx])
 
-        for sphere in actors[idx]:
-            ren.AddActor(sphere)
+        for sphere_transparent in actors[idx]:
+            ren.AddActor(sphere_transparent)
 
         ren.SetBackground(colors[idx])
 
