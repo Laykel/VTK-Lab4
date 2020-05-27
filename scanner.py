@@ -82,8 +82,8 @@ def main():
 
     # -------------------------------------------------------------------- CLIPPING
     sphere = vtk.vtkSphere()
-    sphere.SetCenter(80, 30, 110)
-    sphere.SetRadius(52)
+    sphere.SetCenter(80, 40, 110)
+    sphere.SetRadius(48)
 
     clipper = vtk.vtkClipPolyData()
     clipper.SetInputConnection(skin_contour.GetOutputPort())
@@ -98,8 +98,21 @@ def main():
     clip_sphere = vtk.vtkActor()
     clip_sphere.SetMapper(clip_mapper)
     clip_sphere.GetProperty().SetColor(0.9, 0.69, 0.56)
-    # clip_actor.GetProperty().SetOpacity(0.1)
     # -------------------------------------------------------------------- CLIPPING
+    # -------------------------------------------------------------------- SPHERE
+    sphere_source = vtk.vtkSphereSource()
+    sphere_source.SetCenter(80, 40, 110)
+    sphere_source.SetRadius(48)
+    sphere_source.SetPhiResolution(15)
+    sphere_source.SetThetaResolution(15)
+
+    sphere_mapper = vtk.vtkPolyDataMapper()
+    sphere_mapper.SetInputConnection(sphere_source.GetOutputPort())
+
+    sphere = vtk.vtkActor()
+    sphere.SetMapper(sphere_mapper)
+    sphere.GetProperty().SetOpacity(0.2)
+    # -------------------------------------------------------------------- SPHERE
 
     # Create actors
     knee_outline = outline(reader)
@@ -117,7 +130,7 @@ def main():
     renderers = [vtk.vtkRenderer() for _ in range(4)]
     # Actors for the four viewports
     actors = [
-        [clip_sphere, knee_bone, knee_outline],
+        [clip_sphere, sphere, knee_bone, knee_outline],
         [knee_bone, knee_outline],
         [knee_skin, knee_bone, knee_outline],
         [clip_sphere, knee_bone, knee_outline]
@@ -144,8 +157,8 @@ def main():
 
     # Rotate all objects to have a 360 view
     for _ in range(360):
-        for ren in renderers:
-            ren.GetActiveCamera().Azimuth(1)
+        # for ren in renderers:
+        #     ren.GetActiveCamera().Azimuth(1)
 
         ren_win.Render()
         sleep(FRAMERATE)
