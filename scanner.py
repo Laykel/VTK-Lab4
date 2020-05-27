@@ -76,40 +76,36 @@ def main():
     reader.SetFileName(SLC_FILENAME)
     reader.Update()
 
-    # Create actors
-    knee_outline = outline(reader)
-    knee_bone = create_actor(contour(reader, 0, 72.0))
-    knee_skin = create_actor(contour(reader, 0, 50))
-    knee_skin.GetProperty().SetColor(0.9, 0.69, 0.56)
+    # Create contours
+    bone_contour = contour(reader, 0, 72.0)
+    skin_contour = contour(reader, 0, 50)
 
-    # -------------------------------------------------------------------- SPHERE
+    # -------------------------------------------------------------------- CLIPPING
     sphere = vtk.vtkSphere()
-    sphere.SetCenter(80, -110, 40)
-    sphere.SetRadius(50)
+    sphere.SetCenter(80, 30, 110)
+    sphere.SetRadius(52)
 
     clipper = vtk.vtkClipPolyData()
-    clipper.SetInputConnection(                                  )
+    clipper.SetInputConnection(skin_contour.GetOutputPort())
     clipper.SetClipFunction(sphere)
     clipper.GenerateClippedOutputOn()
     clipper.SetValue(0.5)
 
     clip_mapper = vtk.vtkPolyDataMapper()
     clip_mapper.SetInputConnection(clipper.GetOutputPort())
+    clip_mapper.SetScalarVisibility(False)
 
-    clip_actor = vtk.vtkActor()
-    clip_actor.SetMapper(clip_mapper)
+    clip_sphere = vtk.vtkActor()
+    clip_sphere.SetMapper(clip_mapper)
+    clip_sphere.GetProperty().SetColor(0.9, 0.69, 0.56)
     # clip_actor.GetProperty().SetOpacity(0.1)
-    # -------------------------------------------------------------------- SPHERE
+    # -------------------------------------------------------------------- CLIPPING
 
-    # Create a transform object for the knee and its outline
-    transform = vtk.vtkTransform()
-    transform.PostMultiply()
-    knee_bone.SetUserTransform(transform)
-    knee_outline.SetUserTransform(transform)
-    knee_skin.SetUserTransform(transform)
-
-    # Rotate the knee in its initial position
-    transform.RotateX(90)
+    # Create actors
+    knee_outline = outline(reader)
+    knee_bone = create_actor(bone_contour)
+    knee_skin = create_actor(skin_contour)
+    knee_skin.GetProperty().SetColor(0.9, 0.69, 0.56)
 
     # Define viewport ranges
     xmins = [0, .5, 0, .5]
@@ -121,10 +117,10 @@ def main():
     renderers = [vtk.vtkRenderer() for _ in range(4)]
     # Actors for the four viewports
     actors = [
-        [knee_skin, knee_bone, knee_outline, clip_actor],
+        [clip_sphere, knee_bone, knee_outline],
         [knee_bone, knee_outline],
         [knee_skin, knee_bone, knee_outline],
-        [knee_skin, knee_bone, knee_outline]
+        [clip_sphere, knee_bone, knee_outline]
     ]
     # Background colors for the four viewports
     colors = [(0.82, 0.82, 1), (0.82, 0.82, 0.82), (1, 0.82, 0.82), (0.82, 1, 0.82)]
@@ -139,7 +135,11 @@ def main():
             ren.AddActor(sphere)
 
         ren.SetBackground(colors[idx])
-        ren.GetActiveCamera().Elevation(180)
+
+        # Move the camera so that it looks at the knee in the right way
+        ren.GetActiveCamera().Elevation(-90)
+        ren.GetActiveCamera().OrthogonalizeViewUp()
+        ren.GetActiveCamera().Roll(180)
         ren.ResetCamera()
 
     # Rotate all objects to have a 360 view
