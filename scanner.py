@@ -86,6 +86,23 @@ def create_sphere_clipping(vtk_object, radius, coordinates):
     return clipped
 
 
+def get_sphere_actor(pos, radius):
+    """Returns a sphere actor at the position and of the size specified"""
+    sphere = vtk.vtkSphereSource()
+    sphere.SetCenter(pos)
+    sphere.SetRadius(radius)
+    sphere.SetPhiResolution(15)
+    sphere.SetThetaResolution(15)
+
+    mapper = vtk.vtkPolyDataMapper()
+    mapper.SetInputConnection(sphere.GetOutputPort())
+
+    actor = vtk.vtkActor()
+    actor.SetMapper(mapper)
+
+    return actor
+
+
 # Main instructions
 def main():
     ren_win = vtk.vtkRenderWindow()
@@ -109,20 +126,6 @@ def main():
     bone_contour = contour(reader, 0, 72.0)
     skin_contour = contour(reader, 0, 50)
 
-    # -------------------------------------------------------------------- SPHERE
-    sphere_source = vtk.vtkSphereSource()
-    sphere_source.SetCenter(80, 40, 110)
-    sphere_source.SetRadius(48)
-    sphere_source.SetPhiResolution(15)
-    sphere_source.SetThetaResolution(15)
-
-    sphere_mapper = vtk.vtkPolyDataMapper()
-    sphere_mapper.SetInputConnection(sphere_source.GetOutputPort())
-
-    sphere_transparent = vtk.vtkActor()
-    sphere_transparent.SetMapper(sphere_mapper)
-    sphere_transparent.GetProperty().SetOpacity(0.2)
-    # -------------------------------------------------------------------- SPHERE
     # -------------------------------------------------------------------- DISTANCE
     clean1 = vtk.vtkCleanPolyData()
     clean1.SetInputData(bone_contour.GetOutput())
@@ -156,6 +159,9 @@ def main():
     knee_clipped_transparent.GetProperty().SetColor(0.9, 0.69, 0.56)
     knee_clipped_transparent.GetProperty().SetOpacity(0.5)
 
+    sphere_transparent = get_sphere_actor((80, 40, 110), 48)
+    sphere_transparent.GetProperty().SetOpacity(0.2)
+
     # Define viewport ranges
     xmins = [0, .5, 0, .5]
     xmaxs = [0.5, 1, 0.5, 1]
@@ -183,19 +189,21 @@ def main():
 
     # Create the viewports and generate the visualizations
     for idx, actors in enumerate(actors_per_viewport):
+        # Set up the renderer for this viewport
         ren = vtk.vtkRenderer()
         ren.SetActiveCamera(camera)
         ren_win.AddRenderer(ren)
 
         ren.SetViewport(xmins[idx], ymins[idx], xmaxs[idx], ymaxs[idx])
 
+        # Add appropriate actors
         for actor in actors:
             ren.AddActor(actor)
 
         ren.SetBackground(colors[idx])
         ren.ResetCamera()
 
-    # Rotate all objects to have a 360 view
+    # Move the camera around the focal point to turn around the objects
     for _ in range(360):
         camera.Azimuth(1)
 
