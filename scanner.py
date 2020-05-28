@@ -154,13 +154,16 @@ def main():
     knee_clipped = create_sphere_clipping(skin_contour, 48, (80, 40, 110))
     knee_clipped.GetProperty().SetColor(0.9, 0.69, 0.56)
 
-    # TODO Make it not transparent on the back
     knee_clipped_transparent = create_sphere_clipping(skin_contour, 48, (80, 40, 110))
     knee_clipped_transparent.GetProperty().SetColor(0.9, 0.69, 0.56)
     knee_clipped_transparent.GetProperty().SetOpacity(0.5)
 
+    knee_clipped_backside = create_sphere_clipping(skin_contour, 48, (80, 40, 110))
+    knee_clipped_backside.GetProperty().SetColor(0.9, 0.69, 0.56)
+    knee_clipped_backside.GetProperty().FrontfaceCullingOn()
+
     sphere_transparent = get_sphere_actor((80, 40, 110), 48)
-    sphere_transparent.GetProperty().SetOpacity(0.2)
+    sphere_transparent.GetProperty().SetOpacity(0.4)
 
     # Define viewport ranges
     xmins = [0, .5, 0, .5]
@@ -182,7 +185,7 @@ def main():
         [knee_clipped, sphere_transparent, knee_bone, knee_outline],
         [bone_color, knee_outline],
         [knee_skin, knee_bone, knee_outline],
-        [knee_clipped_transparent, knee_bone, knee_outline]
+        [knee_clipped_transparent, knee_clipped_backside, knee_bone, knee_outline]
     ]
     # Background colors for the four viewports
     colors = [(0.82, 0.82, 1), (0.82, 0.82, 0.82), (1, 0.82, 0.82), (0.82, 1, 0.82)]
