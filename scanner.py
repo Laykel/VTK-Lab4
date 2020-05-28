@@ -92,6 +92,14 @@ def main():
     ren_win.SetWindowName("The good knee")
     ren_win.SetSize(1000, 1000)
 
+    # Watch for events
+    interactor = vtk.vtkRenderWindowInteractor()
+    interactor.SetRenderWindow(ren_win)
+
+    # Set the interactor style
+    style = vtk.vtkInteractorStyleTrackballCamera()
+    interactor.SetInteractorStyle(style)
+
     # Create an SLC reader
     reader = vtk.vtkSLCReader()
     reader.SetFileName(SLC_FILENAME)
@@ -115,6 +123,24 @@ def main():
     sphere_transparent.SetMapper(sphere_mapper)
     sphere_transparent.GetProperty().SetOpacity(0.2)
     # -------------------------------------------------------------------- SPHERE
+    # -------------------------------------------------------------------- DISTANCE
+    clean1 = vtk.vtkCleanPolyData()
+    clean1.SetInputData(bone_contour.GetOutput())
+    clean2 = vtk.vtkCleanPolyData()
+    clean2.SetInputData(skin_contour.GetOutput())
+
+    distance_filter = vtk.vtkDistancePolyDataFilter()
+    distance_filter.SignedDistanceOff()
+    # distance_filter.SetInputConnection(0, clean1.GetOutputPort())
+    # distance_filter.SetInputConnection(1, clean2.GetOutputPort())
+    distance_filter.Update()
+
+    color_mapper = vtk.vtkPolyDataMapper()
+    color_mapper.SetInputConnection(distance_filter.GetOutputPort())
+
+    bone_color = vtk.vtkActor()
+    bone_color.SetMapper(color_mapper)
+    # -------------------------------------------------------------------- DISTANCE
 
     # Create actors
     knee_outline = outline(reader)
@@ -136,12 +162,19 @@ def main():
     ymins = [0, 0, .5, .5]
     ymaxs = [0.5, 0.5, 1, 1]
 
-    # Renderers for the four viewports
-    renderers = [vtk.vtkRenderer() for _ in range(4)]
+    # Set up a single camera for all the viewports
+    camera = vtk.vtkCamera()
+    camera.SetPosition(0, 0, 100)
+    camera.SetFocalPoint(0, 0, 0)
+    # Move the camera in the right position
+    camera.Elevation(-90)
+    camera.OrthogonalizeViewUp()
+    camera.Roll(180)
+
     # Actors for the four viewports
-    actors = [
+    actors_per_viewport = [
         [knee_clipped, sphere_transparent, knee_bone, knee_outline],
-        [knee_bone, knee_outline],
+        [bone_color, knee_outline],
         [knee_skin, knee_bone, knee_outline],
         [knee_clipped_transparent, knee_bone, knee_outline]
     ]
@@ -149,31 +182,27 @@ def main():
     colors = [(0.82, 0.82, 1), (0.82, 0.82, 0.82), (1, 0.82, 0.82), (0.82, 1, 0.82)]
 
     # Create the viewports and generate the visualizations
-    for idx, ren in enumerate(renderers):
+    for idx, actors in enumerate(actors_per_viewport):
+        ren = vtk.vtkRenderer()
+        ren.SetActiveCamera(camera)
         ren_win.AddRenderer(ren)
 
         ren.SetViewport(xmins[idx], ymins[idx], xmaxs[idx], ymaxs[idx])
 
-        for sphere_transparent in actors[idx]:
-            ren.AddActor(sphere_transparent)
+        for actor in actors:
+            ren.AddActor(actor)
 
         ren.SetBackground(colors[idx])
-
-        # Move the camera so that it looks at the knee in the right way
-        ren.GetActiveCamera().Elevation(-90)
-        ren.GetActiveCamera().OrthogonalizeViewUp()
-        ren.GetActiveCamera().Roll(180)
         ren.ResetCamera()
 
     # Rotate all objects to have a 360 view
     for _ in range(360):
-        # for ren in renderers:
-        #     ren.GetActiveCamera().Azimuth(1)
+        camera.Azimuth(1)
 
         ren_win.Render()
         sleep(FRAMERATE)
 
-    sleep(2)
+    interactor.Start()
 
 
 if __name__ == "__main__":
