@@ -11,6 +11,7 @@ https://lorensen.github.io/VTKExamples/site/Python/IO/ReadSLC/
 """
 
 from time import sleep
+from os.path import isfile
 import vtk
 
 # The time a frame stays on screen (seconds)
@@ -91,8 +92,8 @@ def get_sphere_actor(pos, radius):
     sphere = vtk.vtkSphereSource()
     sphere.SetCenter(pos)
     sphere.SetRadius(radius)
-    sphere.SetPhiResolution(15)
-    sphere.SetThetaResolution(15)
+    sphere.SetPhiResolution(30)
+    sphere.SetThetaResolution(30)
 
     mapper = vtk.vtkPolyDataMapper()
     mapper.SetInputConnection(sphere.GetOutputPort())
@@ -101,6 +102,52 @@ def get_sphere_actor(pos, radius):
     actor.SetMapper(mapper)
 
     return actor
+
+
+def distance_color(data1, data2, filename):
+    """Either generates or reads a polydata object colored depending on the distance to another object
+    If the filename provided already exists on the file system, the function tries to read it and returns an actor.
+    If not, the function generates a distance filter and returns an actor (this takes a long time).
+    """
+    if isfile(filename):
+        dist_polydata = read_from_file(filename)
+    else:
+        dist_filter = vtk.vtkDistancePolyDataFilter()
+        dist_filter.SignedDistanceOff()
+        dist_filter.SetInputConnection(0, data1.GetOutputPort())
+        dist_filter.SetInputConnection(1, data2.GetOutputPort())
+        dist_filter.Update()
+
+        dist_polydata = dist_filter.GetOutput()
+
+        write_to_file(dist_polydata, filename)
+
+    dist_ranges = dist_polydata.GetPointData().GetScalars().GetRange()
+
+    color_mapper = vtk.vtkPolyDataMapper()
+    color_mapper.SetInputData(dist_polydata)
+    color_mapper.SetScalarRange(dist_ranges[0], dist_ranges[1])
+
+    bone_color = vtk.vtkActor()
+    bone_color.SetMapper(color_mapper)
+
+    return bone_color
+
+
+def write_to_file(data, filename):
+    """Write polydata geometry, topology and attributes to file"""
+    writer = vtk.vtkPolyDataWriter()
+    writer.SetInputData(data)
+    writer.SetFileName(filename)
+    writer.Write()
+
+
+def read_from_file(filename):
+    """Read polydata geometry, topology and attributes from file"""
+    reader = vtk.vtkPolyDataReader()
+    reader.SetFileName(filename)
+    reader.Update()
+    return reader.GetOutput()
 
 
 # Main instructions
@@ -126,25 +173,6 @@ def main():
     bone_contour = contour(reader, 0, 72.0)
     skin_contour = contour(reader, 0, 50)
 
-    # -------------------------------------------------------------------- DISTANCE
-    clean1 = vtk.vtkCleanPolyData()
-    clean1.SetInputData(bone_contour.GetOutput())
-    clean2 = vtk.vtkCleanPolyData()
-    clean2.SetInputData(skin_contour.GetOutput())
-
-    distance_filter = vtk.vtkDistancePolyDataFilter()
-    distance_filter.SignedDistanceOff()
-    # distance_filter.SetInputConnection(0, clean1.GetOutputPort())
-    # distance_filter.SetInputConnection(1, clean2.GetOutputPort())
-    distance_filter.Update()
-
-    color_mapper = vtk.vtkPolyDataMapper()
-    color_mapper.SetInputConnection(distance_filter.GetOutputPort())
-
-    bone_color = vtk.vtkActor()
-    bone_color.SetMapper(color_mapper)
-    # -------------------------------------------------------------------- DISTANCE
-
     # Create actors
     knee_outline = outline(reader)
     knee_bone = create_actor(bone_contour)
@@ -164,6 +192,9 @@ def main():
 
     sphere_transparent = get_sphere_actor((80, 40, 110), 48)
     sphere_transparent.GetProperty().SetOpacity(0.4)
+
+    # This will generate the file if it doesn't exist (computationally expensive)
+    bone_color = distance_color(bone_contour, skin_contour, "bone_distance_color.vtk")
 
     # Define viewport ranges
     xmins = [0, .5, 0, .5]
