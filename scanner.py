@@ -6,8 +6,11 @@ Authors: Claude-André Alves, Luc Wachter
 Description: Manipulate a knee scan using different techniques (contouring, clipping, cutting, implicit functions, ...)
 Date: 12.05.2020
 Python version: 3.7.4
-
+Sources:
 https://lorensen.github.io/VTKExamples/site/Python/IO/ReadSLC/
+https://lorensen.github.io/VTKExamples/site/Python/Visualization/MultipleViewports/
+https://lorensen.github.io/VTKExamples/site/Cxx/PolyData/DistancePolyDataFilter/
+https://www.kitware.com/products/books/VTKUsersGuide.pdf
 """
 
 from time import sleep
@@ -66,6 +69,35 @@ def create_actor(vtk_algo):
     return actor
 
 
+def repeated_cuts(vtk_contour, nb_cuts):
+    """Cut the given object nb_cuts times using a plane, a cutter and a tube filter
+    :param vtk_contour: The object to cut in tubes
+    :param nb_cuts: The number of tubes to cut
+    :returns: An actor representing the object cut in nb_cuts tubes separated by 10
+    """
+    plane = vtk.vtkPlane()
+    plane.SetOrigin(0, 0, 0)
+
+    plane_cutter = vtk.vtkCutter()
+    plane_cutter.SetInputConnection(vtk_contour.GetOutputPort())
+    plane_cutter.SetCutFunction(plane)
+
+    for i in range(nb_cuts + 1):
+        # Add cut values and separate each cut by a space of 10
+        plane_cutter.SetValue(i, i * 10)
+
+    stripper = vtk.vtkStripper()
+    stripper.SetInputConnection(plane_cutter.GetOutputPort())
+    stripper.Update()
+
+    tube_filter = vtk.vtkTubeFilter()
+    tube_filter.SetInputConnection(stripper.GetOutputPort())
+    tube_filter.SetRadius(1)
+    tube_filter.Update()
+
+    return create_actor(tube_filter)
+
+
 def create_sphere_clipping(vtk_algo, radius, coordinates):
     """Create a clipping actor between the vtk_object provided and a sphere at the coordinates and of the radius
     :param vtk_algo: The object to clip with the sphere
@@ -83,14 +115,7 @@ def create_sphere_clipping(vtk_algo, radius, coordinates):
     clipper.GenerateClippedOutputOn()
     clipper.SetValue(0.5)
 
-    clip_mapper = vtk.vtkPolyDataMapper()
-    clip_mapper.SetInputConnection(clipper.GetOutputPort())
-    clip_mapper.SetScalarVisibility(False)
-
-    clipped = vtk.vtkActor()
-    clipped.SetMapper(clip_mapper)
-
-    return clipped
+    return create_actor(clipper)
 
 
 def get_sphere_actor(pos, radius):
@@ -101,13 +126,7 @@ def get_sphere_actor(pos, radius):
     sphere.SetPhiResolution(30)
     sphere.SetThetaResolution(30)
 
-    mapper = vtk.vtkPolyDataMapper()
-    mapper.SetInputConnection(sphere.GetOutputPort())
-
-    actor = vtk.vtkActor()
-    actor.SetMapper(mapper)
-
-    return actor
+    return create_actor(sphere)
 
 
 def distance_color(data1, data2, filename):
@@ -185,6 +204,11 @@ def main():
     knee_skin = create_actor(skin_contour)
     knee_skin.GetProperty().SetColor(0.9, 0.69, 0.56)
 
+    # Cut knee for top left visualization
+    cut_skin = repeated_cuts(skin_contour, 19)
+    cut_skin.GetProperty().SetColor(0.9, 0.69, 0.56)
+
+    # Clipped knee for top right and bottom left visualizations
     knee_clipped = create_sphere_clipping(skin_contour, 48, (80, 40, 110))
     knee_clipped.GetProperty().SetColor(0.9, 0.69, 0.56)
 
@@ -199,14 +223,9 @@ def main():
     sphere_transparent = get_sphere_actor((80, 40, 110), 48)
     sphere_transparent.GetProperty().SetOpacity(0.4)
 
+    # Colored bone for bottom right visualization
     # This will generate the file if it doesn't exist (computationally expensive)
     bone_color = distance_color(bone_contour, skin_contour, "bone_distance_color.vtk")
-
-    # Define viewport ranges
-    xmins = [0, .5, 0, .5]
-    xmaxs = [0.5, 1, 0.5, 1]
-    ymins = [0, 0, .5, .5]
-    ymaxs = [0.5, 0.5, 1, 1]
 
     # Set up a single camera for all the viewports
     camera = vtk.vtkCamera()
@@ -217,15 +236,19 @@ def main():
     camera.OrthogonalizeViewUp()
     camera.Roll(180)
 
+    # Define viewport ranges
+    viewports = [(0, 0, 0.5, 0.5), (0.5, 0, 1, 0.5), (0, 0.5, 0.5, 1), (0.5, 0.5, 1, 1)]
+
     # Actors for the four viewports
     actors_per_viewport = [
         [knee_clipped, sphere_transparent, knee_bone, knee_outline],
         [bone_color, knee_outline],
-        [knee_skin, knee_bone, knee_outline],
+        [cut_skin, knee_bone, knee_outline],
         [knee_clipped_transparent, knee_clipped_backside, knee_bone, knee_outline]
     ]
+
     # Background colors for the four viewports
-    colors = [(0.82, 0.82, 1), (0.82, 0.82, 0.82), (1, 0.82, 0.82), (0.82, 1, 0.82)]
+    bg_colors = [(0.82, 0.82, 1), (0.82, 0.82, 0.82), (1, 0.82, 0.82), (0.82, 1, 0.82)]
 
     # Create the viewports and generate the visualizations
     for idx, actors in enumerate(actors_per_viewport):
@@ -234,13 +257,13 @@ def main():
         ren.SetActiveCamera(camera)
         ren_win.AddRenderer(ren)
 
-        ren.SetViewport(xmins[idx], ymins[idx], xmaxs[idx], ymaxs[idx])
+        ren.SetViewport(viewports[idx])
 
         # Add appropriate actors
         for actor in actors:
             ren.AddActor(actor)
 
-        ren.SetBackground(colors[idx])
+        ren.SetBackground(bg_colors[idx])
         ren.ResetCamera()
 
     # Move the camera around the focal point to turn around the objects
