@@ -3,7 +3,7 @@
 """
 Lab: 4-KneeScan
 Authors: Claude-André Alves, Luc Wachter
-Description: Provide four visualizations of a knee scan.
+Description: Manipulate a knee scan using different techniques (contouring, clipping, cutting, implicit functions, ...)
 Date: 12.05.2020
 Python version: 3.7.4
 
@@ -19,13 +19,13 @@ FRAMERATE = 0.01
 SLC_FILENAME = "vw_knee.slc"
 
 
-def outline(vtk_object):
+def outline(vtk_reader):
     """Create an actor representing an outline for the object
-    :param vtk_object: The vtk object around which the outline must appear
+    :param vtk_reader: The vtk object around which the outline must appear
     :returns: A vtkActor representing an outline around the object
     """
     outliner = vtk.vtkOutlineFilter()
-    outliner.SetInputConnection(vtk_object.GetOutputPort())
+    outliner.SetInputConnection(vtk_reader.GetOutputPort())
     outliner.Update()
 
     outline_mapper = vtk.vtkPolyDataMapper()
@@ -37,28 +37,28 @@ def outline(vtk_object):
     return outline_actor
 
 
-def contour(vtk_object, i, j):
-    """...
-    :param vtk_object: The object to apply contouring to
-    :param i: TODO
-    :param j: TODO
+def contour(vtk_reader, i, j):
+    """Take in a reader and return a contour filter object
+    :param vtk_reader: The object to apply contouring to
+    :param i: Index of the iso-value
+    :param j: Iso-value for the contour filter
     :returns: A vtkContourFilter to add to the pipeline
     """
-    # Implementing Marching Cubes Algorithm to create the surface using vtkContourFilter object.
+    # Implementing Marching Cubes Algorithm to create the surface using vtkContourFilter object
     contourer = vtk.vtkContourFilter()
-    contourer.SetInputConnection(vtk_object.GetOutputPort())
+    contourer.SetInputConnection(vtk_reader.GetOutputPort())
     contourer.SetValue(i, j)
 
     return contourer
 
 
-def create_actor(vtk_object):
+def create_actor(vtk_algo):
     """Create an actor from a vtkObject
-    :param vtk_object: The object for which to create an actor
+    :param vtk_algo: The object for which to create an actor
     :returns: An actor representing the object sent as parameter
     """
     mapper = vtk.vtkPolyDataMapper()
-    mapper.SetInputConnection(vtk_object.GetOutputPort())
+    mapper.SetInputConnection(vtk_algo.GetOutputPort())
     mapper.SetScalarVisibility(False)
 
     actor = vtk.vtkActor()
@@ -66,13 +66,19 @@ def create_actor(vtk_object):
     return actor
 
 
-def create_sphere_clipping(vtk_object, radius, coordinates):
+def create_sphere_clipping(vtk_algo, radius, coordinates):
+    """Create a clipping actor between the vtk_object provided and a sphere at the coordinates and of the radius
+    :param vtk_algo: The object to clip with the sphere
+    :param radius: The radius of the sphere
+    :param coordinates: The coordinates of the sphere
+    :returns: An actor representing the object clipped with the sphere
+    """
     sphere = vtk.vtkSphere()
     sphere.SetRadius(radius)
     sphere.SetCenter(coordinates)
 
     clipper = vtk.vtkClipPolyData()
-    clipper.SetInputConnection(vtk_object.GetOutputPort())
+    clipper.SetInputConnection(vtk_algo.GetOutputPort())
     clipper.SetClipFunction(sphere)
     clipper.GenerateClippedOutputOn()
     clipper.SetValue(0.5)
